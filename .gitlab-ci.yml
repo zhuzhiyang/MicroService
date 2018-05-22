@@ -1,0 +1,38 @@
+image: registry.choerodon.com.cn/tools/cibase:0.5.0
+
+stages:
+  - mvn-package
+  - docker-build
+
+maven-test-docker:
+  stage: mvn-package
+  script:
+    - update_pom_version
+    - mvn package -U -DskipTests=true
+    - mvn --batch-mode verify sonar:sonar -Dsonar.host.url=${SONAR_URL} -Dsonar.analysis.serviceGroup=${GROUP_NAME} -Dsonar.analysis.commitId=${CI_COMMIT_SHA}
+    - cache_jar
+  only:
+    - tags
+    - develop
+    - /^release-.*$/
+    - /^hotfix-.*$/
+
+docker-build:
+  stage: docker-build
+  script:
+    - docker_build
+    - chart_build
+    - clean_cache
+  only:
+    - tags
+    - develop
+    - /^release-.*$/
+    - /^hotfix-.*$/
+
+.auto_devops: &auto_devops |
+    curl -o .auto_devops.sh \
+        "${CHOERODON_URL}/devops/ci?token=${Token}&type=microservice"
+    source .auto_devops.sh
+
+before_script:
+  - *auto_devops
